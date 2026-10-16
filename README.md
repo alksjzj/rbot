@@ -405,6 +405,38 @@ python3 -m compileall -q src scripts
 
 ## Troubleshooting
 
+### Gazebo is slow or uses software rendering in Docker
+
+For NVIDIA graphics, install the host driver first, stop all containers, then run:
+
+```bash
+sudo bash scripts/setup_nvidia_docker.sh
+bash scripts/run_sim.sh --nvidia
+```
+
+The setup script installs NVIDIA Container Toolkit from the official repository,
+registers its Docker runtime, and restarts Docker. No image rebuild is needed.
+The launcher automatically detects the NVIDIA runtime; `--nvidia` requires it,
+while `--no-nvidia` keeps the base Intel/AMD configuration. The override in
+`docker/docker-compose.nvidia.yml` enables NVIDIA graphics for Gazebo's GUI,
+sensor rendering, and RViz. GPU 0 is selected by default; set
+`RLAI_NVIDIA_DEVICE` to another GPU index or UUID if needed.
+
+When invoking Compose directly, include the override:
+
+```bash
+docker compose -f docker/docker-compose.yml -f docker/docker-compose.nvidia.yml up sim
+```
+
+Verify the actual renderer, rather than only testing `nvidia-smi`:
+
+```bash
+docker exec rlai_sim grep -a GL_RENDERER /root/.gz/rendering/ogre2.log
+```
+
+Expect the NVIDIA GPU name. `llvmpipe` means CPU software rendering.
+Physics simulation still runs on the CPU.
+
 ### Gazebo GUI does not open from Docker
 
 Allow local Docker containers to connect to your X server:

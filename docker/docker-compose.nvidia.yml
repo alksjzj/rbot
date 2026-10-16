@@ -1,0 +1,31 @@
+# NVIDIA graphics support for Gazebo (GUI and sensor rendering) and RViz.
+# run_sim.sh adds this override automatically when the nvidia runtime is ready.
+# Direct use:
+# docker compose -f docker/docker-compose.yml -f docker/docker-compose.nvidia.yml up sim
+x-nvidia-graphics: &nvidia-graphics
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            device_ids: ["${RLAI_NVIDIA_DEVICE:-0}"]
+            capabilities: [gpu]
+  environment:
+    # Recent drivers also need the compiler library supplied by compute.
+    - NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,display
+    - __GLX_VENDOR_LIBRARY_NAME=nvidia
+    - __NV_PRIME_RENDER_OFFLOAD=1
+
+services:
+  sim:
+    <<: *nvidia-graphics
+  sim_mapping:
+    <<: *nvidia-graphics
+  rviz:
+    <<: *nvidia-graphics
+  rviz_nav:
+    <<: *nvidia-graphics
+  rviz_mapping:
+    <<: *nvidia-graphics
+  shell:
+    <<: *nvidia-graphics

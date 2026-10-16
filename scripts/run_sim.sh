@@ -11,6 +11,8 @@
 #   bash scripts/run_sim.sh --headless --rviz-nav     # Headless sim + Nav2 + navigation RViz
 #   bash scripts/run_sim.sh --headless --rviz-mapping # Headless mapping sim + mapping RViz
 #   bash scripts/run_sim.sh --rviz-nav --map /ros2_ws/maps/my_map.yaml
+#   bash scripts/run_sim.sh --nvidia                  # require NVIDIA rendering
+#   bash scripts/run_sim.sh --no-nvidia               # use base Intel/AMD config
 #
 # Additional ROS launch args can follow, e.g.:
 #   bash scripts/run_sim.sh --rviz world:=empty_world
@@ -24,6 +26,7 @@ RVIZ=false
 RVIZ_NAV=false
 RVIZ_MAPPING=false
 HEADLESS=false
+NVIDIA_MODE=auto
 MAP_YAML="/ros2_ws/maps/my_map.yaml"
 ROSARGS=()
 while [[ $# -gt 0 ]]; do
@@ -36,6 +39,10 @@ while [[ $# -gt 0 ]]; do
         RVIZ_MAPPING=true
     elif [[ "$arg" == "--headless" ]]; then
         HEADLESS=true
+    elif [[ "$arg" == "--nvidia" ]]; then
+        NVIDIA_MODE=required
+    elif [[ "$arg" == "--no-nvidia" ]]; then
+        NVIDIA_MODE=disabled
     elif [[ "$arg" == "--map" ]]; then
         shift
         if [[ $# -eq 0 ]]; then
@@ -48,6 +55,23 @@ while [[ $# -gt 0 ]]; do
     fi
     shift
 done
+
+COMPOSE_FILES=(-f "$WS_ROOT/docker/docker-compose.yml")
+NVIDIA_ENABLED=false
+if [[ "$NVIDIA_MODE" != "disabled" ]]; then
+    NVIDIA_RUNTIME=$(docker info --format '{{if index .Runtimes "nvidia"}}ready{{end}}')
+    if [[ "$NVIDIA_RUNTIME" == "ready" ]]; then
+        COMPOSE_FILES+=(-f "$WS_ROOT/docker/docker-compose.nvidia.yml")
+        NVIDIA_ENABLED=true
+    elif [[ "$NVIDIA_MODE" == "required" ]]; then
+        echo "ERROR: NVIDIA Docker runtime is not configured." >&2
+        echo "Run: sudo bash $SCRIPT_DIR/setup_nvidia_docker.sh" >&2
+        exit 2
+    elif command -v nvidia-smi >/dev/null 2>&1; then
+        echo "WARNING: NVIDIA driver found, but Docker GPU support is missing." >&2
+        echo "Run: sudo bash $SCRIPT_DIR/setup_nvidia_docker.sh" >&2
+    fi
+fi
 
 # Build the list of docker compose services to start
 SERVICES=(sim)
@@ -91,6 +115,7 @@ echo "    RViz:         $RVIZ"
 echo "    RViz nav:     $RVIZ_NAV"
 echo "    RViz mapping: $RVIZ_MAPPING"
 echo "    Headless:     $HEADLESS"
+echo "    NVIDIA GPU:   $NVIDIA_ENABLED"
 echo "    Map YAML:     $MAP_YAML"
 echo "    Extra args:   ${RLAI_EXTRA_ARGS:-none}"
-exec docker compose -f "$WS_ROOT/docker/docker-compose.yml" up "${SERVICES[@]}"
+exec docker compose "${COMPOSE_FILES[@]}" up "${SERVICES[@]}"
