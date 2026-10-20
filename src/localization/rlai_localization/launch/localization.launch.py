@@ -6,7 +6,7 @@ Localization stack for rbot.
 Always started:
   - imu_filter_madgwick  (imu_tools)   — Madgwick complementary filter;
                                          /imu/data_raw → /imu/data (with orientation)
-  - ekf_node  (robot_localization)     — fuses /wheel_odom + /imu/data,
+  - ekf_node  (robot_localization)     — fuses wheel odometry + /imu/data,
                                          publishes odom→base_footprint TF
                                          and /odometry/filtered
 
@@ -71,8 +71,7 @@ def generate_launch_description():
     # IMU filter node
     # Converts /imu/data_raw → /imu/data by running the Madgwick complementary
     # filter.  Provides orientation quaternion for downstream consumers (rviz2,
-    # nav2).  EKF fuses only gyro-z and accel-x/y from /imu/data — not the
-    # orientation quaternion — to avoid discontinuities on a flat-floor robot.
+    # nav2). EKF uses only gyro-z from /imu/data in the planar configuration.
     imu_filter_node = Node(
         package='imu_filter_madgwick',
         executable='imu_filter_madgwick_node',
@@ -89,7 +88,7 @@ def generate_launch_description():
     )
 
     # EKF node
-    # Fuses wheel odometry + filtered IMU.  Sole publisher of odom→base_footprint TF.
+    # 融合轮式里程计和 IMU；不接入 Gazebo 真值。
     ekf_node = Node(
         package='robot_localization',
         executable='ekf_node',

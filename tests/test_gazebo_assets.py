@@ -278,3 +278,30 @@ def test_bringup_forwards_extra_gz_resource_path():
     assert "extra_gz_resource_path" in constants
     assert "DeclareLaunchArgument" in calls
     assert include_launch_forwards_arg(tree, "extra_gz_resource_path")
+
+
+def test_gazebo_resource_path_resolves_package_prefixed_mesh_uri(tmp_path):
+    """执行实际路径合并函数，确保 model://rlai_meshes/... 能找到安装的网格。"""
+    import os
+
+    shares = {name: str(tmp_path / name / 'share' / name)
+              for name in ('rlai_gazebo', 'rlai_meshes')}
+    mesh = Path(shares['rlai_meshes']) / 'meshes/chassis.stl'
+    mesh.parent.mkdir(parents=True)
+    mesh.touch()
+    functions = [node for node in parse_python(GAZEBO_LAUNCH).body
+                 if isinstance(node, ast.FunctionDef) and
+                 node.name in ('_gazebo_resource_path', '_path_entries', '_unique_paths')]
+
+    class Config:
+        def __init__(self, name):
+            pass
+
+        def perform(self, context):
+            return ''
+
+    namespace = {'os': os, 'get_package_share_directory': shares.__getitem__,
+                 'LaunchConfiguration': Config}
+    exec(compile(ast.Module(body=functions, type_ignores=[]), str(GAZEBO_LAUNCH), 'exec'), namespace)
+    paths = namespace['_gazebo_resource_path'](None).split(os.pathsep)
+    assert any((Path(path) / 'rlai_meshes/meshes/chassis.stl').is_file() for path in paths)

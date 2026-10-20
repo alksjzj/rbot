@@ -24,8 +24,8 @@ services:
   sim:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.gazebo
-    image: rlai-bot:gazebo
+      dockerfile: docker/Dockerfile.gazebo  #使用这个文件镜像
+    image: rlai-bot:gazebo  #指定镜像名称和标签
     container_name: rlai_sim
     # ── GUI / X11 ─────────────────────────────────────────────────────────
     environment:
@@ -41,16 +41,16 @@ services:
       # Set to 'true' (via run_sim.sh --headless or host env) to skip the GUI
       - RLAI_GZ_HEADLESS=${RLAI_GZ_HEADLESS:-false}
     volumes:
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw  #rw是读写权限，这里用于让容器中的图形程序连接到宿主机的X11服务器
       - ${XAUTHORITY:-/tmp/.docker.xauth}:/tmp/.docker.xauth:rw
       # Bind-mount src so launch/config edits apply without rebuilding
       - ../src:/ros2_ws/src/rlai-bot/src:ro
-    # ── GPU (Intel / AMD via DRI) ────────────────────────────────────────
+    # ── GPU (Intel / AMD via DRI) ────────────────────────────────────────意思是让GPU设备可以被容器访问，这里是通过/dev/dri设备文件来实现的
     devices:
       - /dev/dri:/dev/dri
     group_add:
       - video
-    # ── Networking (host = ROS 2 DDS discovery works out of the box) ─────
+    # ── Networking (host = ROS 2 DDS discovery works out of the box) ─────表示容器使用宿主机的网络模式，这样可以让容器中的ROS 2节点直接与宿主机上的节点进行通信，而不需要额外的网络配置
     network_mode: host
     ipc: host
     # ── Launch ───────────────────────────────────────────────────────────
@@ -242,6 +242,8 @@ services:
   # Publishes TwistStamped (stamped:=true) so it matches velocity_smoother's
   # enable_stamped_cmd_vel: true setting.  Requires sim to be running first.
   # Usage: docker compose -f docker/docker-compose.yml run --rm teleop
+  # 因为容器镜像提供了文件 teleop_twist_keyboard，所以可以直接运行这个命令来启动键盘遥控功能。这个命令会启动一个 ROS 2 节点，
+  # 它会监听键盘输入，并将其转换为 TwistStamped 消息，然后发布到 /cmd_vel 话题上，从而控制机器人在 Gazebo 仿真环境中的运动。所以他不需要volumes挂载，因为它不需要访问宿主机的文件系统，只需要运行在容器内即可。
   teleop:
     image: rlai-bot:gazebo
     container_name: rlai_teleop

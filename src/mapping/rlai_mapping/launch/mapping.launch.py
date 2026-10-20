@@ -4,12 +4,13 @@ rlai_mapping/launch/mapping.launch.py
 SLAM Toolbox online-async mapping session for rbot.
 
 What this launches:
-  1. async_slam_toolbox_node  — builds occupancy map from /scan,
+  1. scan_self_filter         — /scan → /scan_filtered (remove body returns)
+  2. async_slam_toolbox_node  — builds occupancy map from /scan_filtered,
                                 publishes /map and map→odom TF
-  2. map_saver_server         — listens for save-map service calls:
+  3. map_saver_server         — listens for save-map service calls:
        ros2 run nav2_map_server map_saver_cli -f /path/to/map
-  3. lifecycle_manager        — auto-configures + activates map_saver_server
-  4. rviz2 (optional)         — overhead SLAM visualisation
+  4. lifecycle_manager        — activates SLAM and map_saver_server
+  5. rviz2 (optional)         — overhead SLAM visualisation
 
 Prerequisites (must be running before this launch file):
   - Gazebo + robot_state_publisher          (rlai_gazebo/gazebo.launch.py)
@@ -34,7 +35,7 @@ Usage:
 """
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
@@ -67,6 +68,16 @@ def generate_launch_description():
             description='Launch RViz2 with SLAM overhead view',
         ),
     ]
+
+    # 原始激光 → 去除车体内部回波 → SLAM；仅处理传感器数据，不接入控制链。
+    scan_self_filter = ExecuteProcess(
+        cmd=[
+            'python3', '-m', 'rlai_utils.scan_self_filter', '--ros-args',
+            '--params-file', LaunchConfiguration('slam_params_file'),
+            '-p', ['use_sim_time:=', LaunchConfiguration('use_sim_time')],
+        ],
+        output='screen',
+    )
 
     # ── async_slam_toolbox_node ───────────────────────────────────────────
     # Online async mode: builds map incrementally while robot navigates.
@@ -130,6 +141,7 @@ def generate_launch_description():
 
     return LaunchDescription(
         declared_args + [
+            scan_self_filter,
             slam_node,
             map_saver_server,
             lifecycle_manager,

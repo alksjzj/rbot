@@ -20,6 +20,8 @@
 ekf_node:
   ros__parameters:
     use_sim_time: true
+    # 平面差速车：约束 z、roll、pitch 及其速度，避免把平面运动估计成三维漂移。
+    two_d_mode: true
 
     # ── Coordinate frames ────────────────────────────────────────────────
     odom_frame:      odom
@@ -35,14 +37,15 @@ ekf_node:
 
     # ── Sensor inputs ─────────────────────────────────────────────────────
 
-    # odom0: wheel odometry from diff_drive_controller
+    # odom0 使用轮式里程计；不读取 Gazebo 真值。
     #   Topic type: nav_msgs/Odometry
-    #   Fused states: x, y, yaw, vx, wz
+    # 作用：融合轮速 vx、wz 和差速车的 vy=0 约束，不重复融合其积分位置。
+    # 轮子打滑仍会使局部 odom 漂移；SLAM 使用独立激光观测修正 map→odom。
     #   [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
     odom0: /diff_drive_controller/odom
-    odom0_config: [true,  true,  false,   # x, y, z
-                   false, false, true,    # roll, pitch, yaw
-                   true,  false, false,   # vx, vy, vz
+    odom0_config: [false, false, false,   # x, y, z
+                   false, false, false,   # roll, pitch, yaw
+                   true,  true,  false,   # vx, vy=0, vz
                    false, false, true,    # vroll, vpitch, vyaw
                    false, false, false]   # ax, ay, az
     odom0_differential: false
@@ -51,18 +54,18 @@ ekf_node:
 
     # imu0: filtered IMU from imu_filter_madgwick (200 Hz input, orientation added)
     #   Topic type: sensor_msgs/Imu  (/imu/data  — produced by imu_filter_madgwick)
-    #   Fused states: yaw rate (from gyro) + ax, ay (from accelerometer)
-    #   Note: orientation from IMU not fused — EKF accumulates yaw from gyro
-    #         to avoid quaternion filter discontinuities in flat-floor navigation.
+    # 作用：使用独立的陀螺仪 z 轴角速度辅助转向估计。
+    # 输入：/imu/data 的 angular_velocity.z；不融合姿态和线加速度。
+    # 平面轮式车先采用轮速 + 陀螺仪，避免加速度噪声和重力补偿误差积累成漂移。
     imu0: /imu/data
     imu0_config: [false, false, false,   # x, y, z
                   false, false, false,   # roll, pitch, yaw  (not used from IMU)
                   false, false, false,   # vx, vy, vz
                   false, false, true,    # vroll, vpitch, vyaw  (gyro z)
-                  true,  true,  false]   # ax, ay, az
+                  false, false, false]   # ax, ay, az
     imu0_differential:        false
     imu0_relative:            false
-    imu0_remove_gravitational_acceleration: true
+    imu0_remove_gravitational_acceleration: false  # 未融合线加速度，无需重力补偿
     imu0_queue_size:          10
 
     # Matrices are flattened row-major 15x15 covariances matching robot_localization state order.

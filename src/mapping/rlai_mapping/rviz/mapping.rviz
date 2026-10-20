@@ -85,9 +85,9 @@ Visualization Manager:
         Depth: 5
         Durability Policy: Volatile
         History Policy: Keep Last
-        Name: /scan
-        Reliability Policy: Reliable
-        Value: /scan
+        Name: /scan_filtered
+        Reliability Policy: Best Effort
+        Value: /scan_filtered
       Use Fixed Frame: true
       Use rainbow: true
       Value: true

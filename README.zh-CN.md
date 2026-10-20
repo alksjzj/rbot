@@ -338,6 +338,9 @@ teleop / Nav2 -> /cmd_vel -> velocity_smoother -> /diff_drive_controller/cmd_vel
 
 由于 Jazzy 版本的 `diff_drive_controller` 需要带时间戳的速度输入，该栈使用 `TwistStamped` 指令。软件急停节点也会向 `/cmd_vel` 发布指令；这是用于仿真和开发的便捷机制。
 
+定位使用轮子关节反馈产生的里程计与 IMU；SLAM 使用去除车体回波后的 `/scan_filtered` 和 TF 修正地图位置。持续顶墙时编码器仍可能累计距离，由激光扫描匹配修正 `map -> odom`。定位和建图不接入 Gazebo 真值。键盘参数、速度和控制链保持原样。
+详细修改、验证结果和启动方法见[碰撞打滑时的传感器建图修复](docs/tutorials/mapping-motion-protection.zh-CN.md)。
+
 ### 仿真桥接
 
 Gazebo 话题通过以下配置进行桥接：
